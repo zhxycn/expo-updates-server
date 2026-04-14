@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -69,7 +70,7 @@ func (s *UpdateService) GetLatestUpdate(ctx context.Context, project, runtimeVer
 			ContentType:   mime.TypeByExtension("." + am.Ext),
 			FileExtension: "." + am.Ext,
 			URL: fmt.Sprintf("%s/api/%s/assets?asset=%s&runtimeVersion=%s&platform=%s",
-				s.cfg.Hostname, project, am.Path, runtimeVersion, platform),
+				s.cfg.Hostname, project, filepath.ToSlash(am.Path), runtimeVersion, platform),
 		})
 	}
 
@@ -83,7 +84,7 @@ func (s *UpdateService) GetLatestUpdate(ctx context.Context, project, runtimeVer
 		Key:         computeKey(bundleData),
 		ContentType: "application/javascript",
 		URL: fmt.Sprintf("%s/api/%s/assets?asset=%s&runtimeVersion=%s&platform=%s",
-			s.cfg.Hostname, project, platformMetadata.Bundle, runtimeVersion, platform),
+			s.cfg.Hostname, project, filepath.ToSlash(platformMetadata.Bundle), runtimeVersion, platform),
 	}
 
 	metadataHash := sha256.Sum256(metadata)
