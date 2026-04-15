@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -37,6 +38,16 @@ func (s *UpdateService) GetLatestUpdate(ctx context.Context, project, runtimeVer
 		return nil, err
 	}
 
+	indexData, err := s.readAsset(ctx, project, runtimeVersion, updateID, fmt.Sprintf("index.%s.json", platform))
+	if err != nil {
+		return nil, err
+	}
+
+	var index model.PlatformIndex
+	if err := json.Unmarshal(indexData, &index); err != nil {
+		return nil, err
+	}
+
 	metadata, err := s.storage.GetMetadata(ctx, project, runtimeVersion, updateID)
 	if err != nil {
 		return nil, err
@@ -47,44 +58,24 @@ func (s *UpdateService) GetLatestUpdate(ctx context.Context, project, runtimeVer
 		return nil, err
 	}
 
-	var metadataJSON model.ExportMetadata
-	if err = json.Unmarshal(metadata, &metadataJSON); err != nil {
-		return nil, err
-	}
-
-	platformMetadata, ok := metadataJSON.FileMetadata[platform]
-	if !ok {
-		return nil, fmt.Errorf("no metadata for platform %s", platform)
-	}
-
-	assets := make([]model.Asset, 0, len(platformMetadata.Assets))
-	for _, am := range platformMetadata.Assets {
-		data, err := s.readAsset(ctx, project, runtimeVersion, updateID, filepath.ToSlash(am.Path))
-		if err != nil {
-			return nil, err
-		}
-
+	assets := make([]model.Asset, 0, len(index.Assets))
+	for _, ai := range index.Assets {
 		assets = append(assets, model.Asset{
-			Hash:          computeHash(data),
-			Key:           computeKey(data),
-			ContentType:   mime.TypeByExtension("." + am.Ext),
-			FileExtension: "." + am.Ext,
+			Hash:          ai.Hash,
+			Key:           ai.Key,
+			ContentType:   ai.ContentType,
+			FileExtension: ai.FileExtension,
 			URL: fmt.Sprintf("%s/api/%s/assets?asset=%s&runtimeVersion=%s&platform=%s",
-				s.cfg.Hostname, project, filepath.ToSlash(am.Path), runtimeVersion, platform),
+				s.cfg.Hostname, project, ai.Path, runtimeVersion, platform),
 		})
 	}
 
-	bundleData, err := s.readAsset(ctx, project, runtimeVersion, updateID, platformMetadata.Bundle)
-	if err != nil {
-		return nil, err
-	}
-
 	launchAsset := model.Asset{
-		Hash:        computeHash(bundleData),
-		Key:         computeKey(bundleData),
+		Hash:        index.Bundle.Hash,
+		Key:         index.Bundle.Key,
 		ContentType: "application/javascript",
 		URL: fmt.Sprintf("%s/api/%s/assets?asset=%s&runtimeVersion=%s&platform=%s",
-			s.cfg.Hostname, project, filepath.ToSlash(platformMetadata.Bundle), runtimeVersion, platform),
+			s.cfg.Hostname, project, index.Bundle.Path, runtimeVersion, platform),
 	}
 
 	metadataHash := sha256.Sum256(metadata)
@@ -163,6 +154,58 @@ func (s *UpdateService) GetAssetReader(ctx context.Context, project, runtimeVers
 }
 
 func (s *UpdateService) PublishUpdate(ctx context.Context, project, runtimeVersion, updateID string, files map[string][]byte) error {
+	metadataRaw, ok := files["metadata.json"]
+	if !ok {
+		return errors.New("no metadata.json")
+	}
+
+	var metadata model.ExportMetadata
+	if err := json.Unmarshal(metadataRaw, &metadata); err != nil {
+		return err
+	}
+
+	for platform, meta := range metadata.FileMetadata {
+		var index model.PlatformIndex
+
+		bundlePath := filepath.ToSlash(meta.Bundle)
+		bundleData, ok := files[bundlePath]
+		if !ok {
+			return fmt.Errorf("bundle %s not found", bundlePath)
+		}
+
+		index.Bundle = model.AssetIndex{
+			Path:        bundlePath,
+			Hash:        computeHash(bundleData),
+			Key:         computeKey(bundleData),
+			ContentType: "application/javascript",
+		}
+
+		index.Assets = make([]model.AssetIndex, 0, len(meta.Assets))
+
+		for _, am := range meta.Assets {
+			assetPath := filepath.ToSlash(am.Path)
+			assetData, ok := files[assetPath]
+			if !ok {
+				return fmt.Errorf("asset %s not found", assetPath)
+			}
+
+			index.Assets = append(index.Assets, model.AssetIndex{
+				Path:          assetPath,
+				Hash:          computeHash(assetData),
+				Key:           computeKey(assetData),
+				ContentType:   mime.TypeByExtension("." + am.Ext),
+				FileExtension: "." + am.Ext,
+			})
+		}
+
+		indexJSON, err := json.Marshal(index)
+		if err != nil {
+			return err
+		}
+
+		files[fmt.Sprintf("index.%s.json", platform)] = indexJSON
+	}
+
 	return s.storage.PutUpdate(ctx, project, runtimeVersion, updateID, files)
 }
 
