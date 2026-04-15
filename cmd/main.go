@@ -23,7 +23,10 @@ func main() {
 	var store storage.Storage
 	switch cfg.StorageType {
 	case "s3":
-		log.Fatal("S3 storage not supported yet")
+		store, err = storage.NewS3Storage(cfg.S3Endpoint, cfg.S3Bucket, cfg.S3Region, cfg.S3AccessKey, cfg.S3SecretKey)
+		if err != nil {
+			log.Fatal(err)
+		}
 	default:
 		store = storage.NewLocalStorage(cfg.StorageDir)
 	}

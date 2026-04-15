@@ -59,7 +59,7 @@ func (s *UpdateService) GetLatestUpdate(ctx context.Context, project, runtimeVer
 
 	assets := make([]model.Asset, 0, len(platformMetadata.Assets))
 	for _, am := range platformMetadata.Assets {
-		data, err := s.readAsset(ctx, project, runtimeVersion, updateID, am.Path)
+		data, err := s.readAsset(ctx, project, runtimeVersion, updateID, filepath.ToSlash(am.Path))
 		if err != nil {
 			return nil, err
 		}

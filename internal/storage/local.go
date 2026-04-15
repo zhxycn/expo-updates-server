@@ -21,10 +21,6 @@ func NewLocalStorage(basePath string) *LocalStorage {
 	}
 }
 
-func (s *LocalStorage) updatePath(project, runtimeVersion, updateID string) string {
-	return filepath.Join(s.basePath, project, runtimeVersion, updateID)
-}
-
 func (s *LocalStorage) GetLatestUpdateID(_ context.Context, project, runtimeVersion string) (string, error) {
 	dir := filepath.Join(s.basePath, project, runtimeVersion)
 
@@ -116,4 +112,8 @@ func (s *LocalStorage) PutUpdate(_ context.Context, project, runtimeVersion, upd
 	}
 
 	return nil
+}
+
+func (s *LocalStorage) updatePath(project, runtimeVersion, updateID string) string {
+	return filepath.Join(s.basePath, project, runtimeVersion, updateID)
 }
