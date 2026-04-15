@@ -9,7 +9,7 @@ COPY . .
 
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /app ./cmd/main.go
 
-FROM gcr.io/distroless/static:nonroot
+FROM gcr.io/distroless/static
 
 COPY --from=builder /app /app
 
