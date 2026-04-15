@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"io"
 	"mime"
-	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"expo-updates-server/internal/config"
@@ -167,7 +167,7 @@ func (s *UpdateService) PublishUpdate(ctx context.Context, project, runtimeVersi
 	for platform, meta := range metadata.FileMetadata {
 		var index model.PlatformIndex
 
-		bundlePath := filepath.ToSlash(meta.Bundle)
+		bundlePath := strings.ReplaceAll(meta.Bundle, "\\", "/")
 		bundleData, ok := files[bundlePath]
 		if !ok {
 			return fmt.Errorf("bundle %s not found", bundlePath)
@@ -183,7 +183,7 @@ func (s *UpdateService) PublishUpdate(ctx context.Context, project, runtimeVersi
 		index.Assets = make([]model.AssetIndex, 0, len(meta.Assets))
 
 		for _, am := range meta.Assets {
-			assetPath := filepath.ToSlash(am.Path)
+			assetPath := strings.ReplaceAll(am.Path, "\\", "/")
 			assetData, ok := files[assetPath]
 			if !ok {
 				return fmt.Errorf("asset %s not found", assetPath)
