@@ -11,20 +11,27 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 type Signer struct {
 	privateKey *rsa.PrivateKey
 }
 
-func NewSigner(privateKeyPath string) (*Signer, error) {
-	if privateKeyPath == "" {
+func NewSigner(privateKeySource string) (*Signer, error) {
+	if privateKeySource == "" {
 		return nil, nil
 	}
 
-	pemData, err := os.ReadFile(privateKeyPath)
-	if err != nil {
-		return nil, err
+	var pemData []byte
+	if strings.Contains(privateKeySource, "BEGIN") {
+		pemData = []byte(privateKeySource)
+	} else {
+		var err error
+		pemData, err = os.ReadFile(privateKeySource)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	block, _ := pem.Decode(pemData)
@@ -36,6 +43,7 @@ func NewSigner(privateKeyPath string) (*Signer, error) {
 
 	switch block.Type {
 	case "RSA PRIVATE KEY":
+		var err error
 		privateKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
 		if err != nil {
 			return nil, err
