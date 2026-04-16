@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -11,6 +12,27 @@ import (
 
 func (h *Handler) Publish(c *echo.Context) error {
 	project := c.Param("project")
+
+	auth := c.Request().Header.Get("Authorization")
+	if !strings.HasPrefix(auth, "Bearer ") {
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Missing API key.",
+		})
+	}
+
+	key, err := h.db.VerifyKey(c.Request().Context(), strings.TrimPrefix(auth, "Bearer "))
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Invalid API key.",
+		})
+	}
+
+	if key.ProjectID != project {
+		return c.JSON(http.StatusUnauthorized, map[string]string{
+			"error": "Invalid API key.",
+		})
+	}
+
 	runtimeVersion := c.FormValue("runtimeVersion")
 
 	if runtimeVersion == "" {

@@ -65,7 +65,7 @@ func (s *UpdateService) GetLatestUpdate(ctx context.Context, project, runtimeVer
 			Key:           ai.Key,
 			ContentType:   ai.ContentType,
 			FileExtension: ai.FileExtension,
-			URL: fmt.Sprintf("%s/api/%s/assets?asset=%s&runtimeVersion=%s&platform=%s",
+			URL: fmt.Sprintf("%s/api/updates/%s/assets?asset=%s&runtimeVersion=%s&platform=%s",
 				s.cfg.Hostname, project, ai.Path, runtimeVersion, platform),
 		})
 	}
@@ -74,7 +74,7 @@ func (s *UpdateService) GetLatestUpdate(ctx context.Context, project, runtimeVer
 		Hash:        index.Bundle.Hash,
 		Key:         index.Bundle.Key,
 		ContentType: "application/javascript",
-		URL: fmt.Sprintf("%s/api/%s/assets?asset=%s&runtimeVersion=%s&platform=%s",
+		URL: fmt.Sprintf("%s/api/updates/%s/assets?asset=%s&runtimeVersion=%s&platform=%s",
 			s.cfg.Hostname, project, index.Bundle.Path, runtimeVersion, platform),
 	}
 

@@ -13,9 +13,7 @@ FROM gcr.io/distroless/static
 
 COPY --from=builder /app /app
 
-ENV STORAGE_DIR=/data/updates
-
-VOLUME /data/updates
+VOLUME /data
 
 EXPOSE 8080
 

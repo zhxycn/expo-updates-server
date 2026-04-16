@@ -1,6 +1,5 @@
 .env
-
 .idea
-
-updates
+*.exe
 *.pem
+data

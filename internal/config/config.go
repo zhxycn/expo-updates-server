@@ -13,7 +13,8 @@ type Config struct {
 
 	StorageType string `envconfig:"STORAGE_TYPE" default:"local"`
 
-	StorageDir string `envconfig:"STORAGE_DIR" default:"./updates"`
+	StorageDir   string `envconfig:"STORAGE_DIR" default:"./data/updates"`
+	DatabasePath string `envconfig:"DATABASE_PATH" default:"./data/ota.db"`
 
 	S3Endpoint  string `envconfig:"S3_ENDPOINT"`
 	S3Bucket    string `envconfig:"S3_BUCKET"`
@@ -22,6 +23,7 @@ type Config struct {
 	S3SecretKey string `envconfig:"S3_SECRET_KEY"`
 
 	PrivateKey string `envconfig:"PRIVATE_KEY"`
+	JWTSecret  string `envconfig:"JWT_SECRET"`
 }
 
 func Load() (*Config, error) {

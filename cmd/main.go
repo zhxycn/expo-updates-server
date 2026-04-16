@@ -1,14 +1,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
 	"github.com/labstack/echo/v5"
-	"github.com/labstack/echo/v5/middleware"
+	echomw "github.com/labstack/echo/v5/middleware"
+	_ "modernc.org/sqlite"
 
 	"expo-updates-server/internal/config"
+	"expo-updates-server/internal/crypto"
+	"expo-updates-server/internal/database"
 	"expo-updates-server/internal/handler"
+	"expo-updates-server/internal/middleware"
+	"expo-updates-server/internal/model"
 	"expo-updates-server/internal/service"
 	"expo-updates-server/internal/signing"
 	"expo-updates-server/internal/storage"
@@ -36,13 +42,33 @@ func main() {
 		log.Fatal(err)
 	}
 
+	hash := crypto.NewPassword(crypto.DefaultArgon2())
+
+	db, err := database.NewDatabase(cfg.DatabasePath, hash)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	db.ModelRegister(
+		(*model.User)(nil),
+		(*model.Project)(nil),
+		(*model.ProjectUser)(nil),
+		(*model.Key)(nil),
+	)
+
+	if err := db.Migrate(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+
+	jwt := &middleware.JWT{Secret: []byte(cfg.JWTSecret)}
+
 	svc := service.NewUpdateService(cfg, store)
 
-	h := handler.NewHandler(cfg, svc, signer)
+	h := handler.NewHandler(cfg, svc, db, signer, jwt)
 
 	e := echo.New()
-	e.Use(middleware.RequestLogger())
-	e.Use(middleware.Recover())
+	e.Use(echomw.RequestLogger())
+	e.Use(echomw.Recover())
 
 	h.Register(e)
 
