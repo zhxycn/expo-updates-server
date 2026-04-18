@@ -11,9 +11,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
-	"strconv"
 	"strings"
-	"time"
 
 	"expo-updates-server/internal/config"
 	"expo-updates-server/internal/model"
@@ -32,128 +30,7 @@ func NewUpdateService(cfg *config.Config, store storage.Storage) *UpdateService 
 	}
 }
 
-func (s *UpdateService) GetLatestUpdate(ctx context.Context, project, runtimeVersion, platform string) (*model.Manifest, error) {
-	updateID, err := s.storage.GetLatestUpdateID(ctx, project, runtimeVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	indexData, err := s.readAsset(ctx, project, runtimeVersion, updateID, fmt.Sprintf("index.%s.json", platform))
-	if err != nil {
-		return nil, err
-	}
-
-	var index model.PlatformIndex
-	if err := json.Unmarshal(indexData, &index); err != nil {
-		return nil, err
-	}
-
-	metadata, err := s.storage.GetMetadata(ctx, project, runtimeVersion, updateID)
-	if err != nil {
-		return nil, err
-	}
-
-	expoConfig, err := s.storage.GetExpoConfig(ctx, project, runtimeVersion, updateID)
-	if err != nil {
-		return nil, err
-	}
-
-	assets := make([]model.Asset, 0, len(index.Assets))
-	for _, ai := range index.Assets {
-		assets = append(assets, model.Asset{
-			Hash:          ai.Hash,
-			Key:           ai.Key,
-			ContentType:   ai.ContentType,
-			FileExtension: ai.FileExtension,
-			URL: fmt.Sprintf("%s/api/updates/%s/assets?asset=%s&runtimeVersion=%s&platform=%s",
-				s.cfg.Hostname, project, ai.Path, runtimeVersion, platform),
-		})
-	}
-
-	launchAsset := model.Asset{
-		Hash:        index.Bundle.Hash,
-		Key:         index.Bundle.Key,
-		ContentType: "application/javascript",
-		URL: fmt.Sprintf("%s/api/updates/%s/assets?asset=%s&runtimeVersion=%s&platform=%s",
-			s.cfg.Hostname, project, index.Bundle.Path, runtimeVersion, platform),
-	}
-
-	metadataHash := sha256.Sum256(metadata)
-	manifestID := hashToUUID(hex.EncodeToString(metadataHash[:]))
-
-	var expoConfigJSON map[string]any
-	_ = json.Unmarshal(expoConfig, &expoConfigJSON)
-
-	createdAt, _ := strconv.ParseInt(updateID, 10, 64)
-
-	return &model.Manifest{
-		ID:             manifestID,
-		CreatedAt:      time.Unix(createdAt, 0),
-		RuntimeVersion: runtimeVersion,
-		LaunchAsset:    launchAsset,
-		Assets:         assets,
-		Metadata:       map[string]string{},
-		Extra: map[string]any{
-			"expoClient": expoConfigJSON,
-		},
-	}, nil
-}
-
-func (s *UpdateService) CheckRollback(ctx context.Context, project, runtimeVersion string) (bool, *model.Directive, error) {
-	updateID, err := s.storage.GetLatestUpdateID(ctx, project, runtimeVersion)
-	if err != nil {
-		return false, nil, err
-	}
-
-	isRollback, err := s.storage.IsRollback(ctx, project, runtimeVersion, updateID)
-	if err != nil {
-		return false, nil, err
-	}
-
-	if !isRollback {
-		return false, nil, nil
-	}
-
-	createdAt, _ := strconv.ParseInt(updateID, 10, 64)
-
-	return true, &model.Directive{
-		Type: "rollBackToEmbedded",
-		Parameters: map[string]any{
-			"commitTime": time.Unix(createdAt, 0).UTC().Format(time.RFC3339),
-		},
-	}, nil
-}
-
-func (s *UpdateService) IsUpToDate(ctx context.Context, project, runtimeVersion, currentUpdateID string) (bool, error) {
-	updateID, err := s.storage.GetLatestUpdateID(ctx, project, runtimeVersion)
-	if err != nil {
-		return false, err
-	}
-
-	metadata, err := s.storage.GetMetadata(ctx, project, runtimeVersion, updateID)
-	if err != nil {
-		return false, err
-	}
-
-	metadataHash := sha256.Sum256(metadata)
-	manifestID := hashToUUID(hex.EncodeToString(metadataHash[:]))
-
-	if currentUpdateID == manifestID {
-		return true, nil
-	}
-	return false, nil
-}
-
-func (s *UpdateService) GetAssetReader(ctx context.Context, project, runtimeVersion, assetPath string) (io.ReadCloser, error) {
-	updateID, err := s.storage.GetLatestUpdateID(ctx, project, runtimeVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.storage.GetAsset(ctx, project, runtimeVersion, updateID, assetPath)
-}
-
-func (s *UpdateService) PublishUpdate(ctx context.Context, project, runtimeVersion, updateID string, files map[string][]byte) error {
+func (s *UpdateService) PublishUpdate(ctx context.Context, project, runtimeVersion, updateId string, files map[string][]byte) error {
 	metadataRaw, ok := files["metadata.json"]
 	if !ok {
 		return errors.New("no metadata.json")
@@ -206,11 +83,11 @@ func (s *UpdateService) PublishUpdate(ctx context.Context, project, runtimeVersi
 		files[fmt.Sprintf("index.%s.json", platform)] = indexJSON
 	}
 
-	return s.storage.PutUpdate(ctx, project, runtimeVersion, updateID, files)
+	return s.storage.PutUpdate(ctx, project, runtimeVersion, updateId, files)
 }
 
-func (s *UpdateService) readAsset(ctx context.Context, project, runtimeVersion, updateID, path string) ([]byte, error) {
-	reader, err := s.storage.GetAsset(ctx, project, runtimeVersion, updateID, path)
+func (s *UpdateService) readAsset(ctx context.Context, project, runtimeVersion, updateId, path string) ([]byte, error) {
+	reader, err := s.storage.GetAsset(ctx, project, runtimeVersion, updateId, path)
 	if err != nil {
 		return nil, err
 	}

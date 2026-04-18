@@ -36,6 +36,7 @@ require (
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
+	go.uber.org/automaxprocs v1.6.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	modernc.org/libc v1.70.0 // indirect

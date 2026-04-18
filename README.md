@@ -42,7 +42,7 @@ docker run -d --name expo-updates-server \
   expo-updates-server
 ```
 
-> When running in Docker, leave `STORAGE_DIR` and `DATABASE_PATH` at their defaults (or set them to paths under `/data`); the image mounts `/data` as a volume, so anything written elsewhere will be lost when the container is recreated.
+> When running in Docker, set `DATA_DIR=/data` (or leave it at the default and mount a volume at `./data`). The image declares `/data` as a volume, so anything written elsewhere will be lost when the container is recreated.
 
 ## Configuration
 
@@ -53,9 +53,8 @@ All settings are loaded from environment variables (and a `.env` file if present
 | `HOST` / `PORT`                  | `0.0.0.0` / `8080`       | Listen address.                                     |
 | `HOSTNAME`                       | `http://localhost:8080`  | Public base URL used in manifest asset URLs.        |
 | `STORAGE_TYPE`                   | `local`                  | `local` or `s3` (S3-compatible, e.g. Cloudflare R2). |
-| `STORAGE_DIR`                    | `./data/updates`         | Local storage root (when `STORAGE_TYPE=local`).     |
-| `DATABASE_PATH`                  | `./data/ota.db`          | SQLite database file.                               |
-| `S3_ENDPOINT` / `S3_BUCKET` / `S3_REGION` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` | – | S3 credentials. |
+| `DATA_DIR`                       | `./data`                 | Base directory for all local data. Updates are stored in `DATA_DIR/updates`, the SQLite database at `DATA_DIR/ota.db`. Directories are created automatically if they don't exist. |
+| `S3_ENDPOINT` / `S3_BUCKET` / `S3_REGION` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` | – | S3 credentials (only when `STORAGE_TYPE=s3`). |
 | `PRIVATE_KEY`                    | –                        | RSA private key (PEM contents) **or** path to a `.pem` file, for code signing. See [Code signing](#code-signing). |
 | `JWT_SECRET`                     | –                        | HMAC secret used to sign user JWTs.                 |
 
@@ -64,7 +63,7 @@ All settings are loaded from environment variables (and a `.env` file if present
 - **User** – authenticates with JWT (`/api/auth/*`).
 - **Project** – an OTA channel identified by an `id`. Membership has roles `owner` and `member`. Owners may manage members and API keys.
 - **API Key** – per-project bearer token used by CI/CLI to publish updates. The plain-text secret is shown **only once** at creation.
-- **Update** – a manifest plus a set of assets, grouped by `(project, runtimeVersion)` and identified by a Unix-timestamp `updateID`. The latest update for a `(project, runtimeVersion)` pair is served to clients.
+- **Update** – a manifest plus a set of assets, grouped by `(project, runtimeVersion)` and identified by a Unix-timestamp `updateId`. The latest update for a `(project, runtimeVersion)` pair is served to clients.
 
 ## Authentication
 
@@ -257,7 +256,7 @@ Response: `200 OK` `multipart/mixed; boundary=…` with parts:
   { "type": "noUpdateAvailable" }
   ```
 
-Response headers: `expo-protocol-version`, `expo-sfv-version: 0`, `cache-control: private, max-age=0`. When code signing is enabled the manifest/directive part also includes a part header `expo-signature: sig=:<base64>:, keyid="main"`.
+Response headers: `expo-protocol-version`, `expo-sfv-version: 0`, `cache-control: public, s-maxage=5, max-age=0` (clients will not cache, but a reverse proxy such as Nginx can cache for up to 5 seconds). When code signing is enabled the manifest/directive part also includes a part header `expo-signature: sig=:<base64>:, keyid="main"`.
 
 Errors:
 
@@ -299,11 +298,11 @@ Request: `multipart/form-data` with:
 | `expoConfig.json` | file | Public Expo app config (`npx expo config --type public --json`). Surfaced to clients as `manifest.extra.expoClient` and required for serving manifests.  |
 | (bundle + assets) | file | One file field per path listed in `metadata.json` — e.g. `_expo/static/js/<platform>/entry-<hash>.hbc` and `assets/<hash>` files. The form field **name** must equal that path with forward slashes. |
 
-The server reads `metadata.json`, hashes every referenced file (SHA-256 base64url for `hash`, MD5 hex for `key`), generates per-platform `index.<platform>.json` files, and stores everything under `<project>/<runtimeVersion>/<updateID>/` where `updateID` is the current Unix timestamp. Backslashes in `metadata.json` paths (which `expo export` produces on Windows) are normalized to forward slashes automatically.
+The server reads `metadata.json`, hashes every referenced file (SHA-256 base64url for `hash`, MD5 hex for `key`), generates per-platform `index.<platform>.json` files, and stores everything under `<project>/<runtimeVersion>/<updateId>/` where `updateId` is the current Unix timestamp. Backslashes in `metadata.json` paths (which `expo export` produces on Windows) are normalized to forward slashes automatically.
 
 Responses:
 
-- `200 OK` – `{ "updateID": "<unix_ts>", "message": "Update published successfully" }`
+- `200 OK` – `{ "updateId": "<unix_ts>", "message": "Update published successfully" }`
 - `400 Bad Request` – missing `runtimeVersion` or malformed multipart form.
 - `401 Unauthorized` – missing/invalid API key, or the key does not belong to `:project`.
 - `500 Internal Server Error` – missing `metadata.json`, or a bundle/asset referenced by `metadata.json` is absent from the upload.
@@ -388,10 +387,10 @@ When a client sends `expo-expect-signature`, the server signs the JSON body of t
 
 ## Storage layout
 
-Each update is written under `<STORAGE_DIR or S3 bucket>/<project>/<runtimeVersion>/<updateID>/`. The exact subpaths depend on what `metadata.json` references; for an Expo SDK 50+ export it looks like:
+Each update is written under `<DATA_DIR/updates or S3 bucket>/<project>/<runtimeVersion>/<updateId>/`. The exact subpaths depend on what `metadata.json` references; for an Expo SDK 50+ export it looks like:
 
 ```
-<project>/<runtimeVersion>/<updateID>/
+<project>/<runtimeVersion>/<updateId>/
   metadata.json                                  # uploaded
   expoConfig.json                                # uploaded
   index.ios.json                                 # generated by server
@@ -408,21 +407,37 @@ For pre-SDK-50 exports the bundles live under `bundles/index.<platform>.js` inst
 
 There is no dedicated API for rollbacks. To roll a `(project, runtimeVersion)` back to the embedded update, drop an empty file named `rollback` into the desired update directory:
 
-- **Local storage:** `touch <STORAGE_DIR>/<project>/<runtimeVersion>/<updateID>/rollback`
-- **S3:** `PUT` an empty object at `<project>/<runtimeVersion>/<updateID>/rollback`
+- **Local storage:** `touch <DATA_DIR>/updates/<project>/<runtimeVersion>/<updateId>/rollback`
+- **S3:** `PUT` an empty object at `<project>/<runtimeVersion>/<updateId>/rollback`
 
 When that update becomes the latest, the manifest endpoint returns a `rollBackToEmbedded` directive with `parameters.commitTime` set to the update's timestamp (see [internal/service/update.go](internal/service/update.go) and [internal/storage](internal/storage)).
 
 ## Project layout
 
-- [cmd/main.go](cmd/main.go) – entrypoint, wires config / storage / DB / signer / handlers.
+```mermaid
+flowchart LR
+    Client([Client / CI]) --> MW["middleware\nRate Limit + JWT"]
+    MW --> Handler["handler\nmanifest / assets\npublish / auth / projects"]
+    Handler --> Service["service\nResolveManifest\nPublishUpdate"]
+    Handler --> Signer["signing\nRSA Signer"]
+    Handler --> DB["database\nSQLite WAL"]
+    Service --> CS["CachedStorage"]
+    CS --> Local["LocalStorage"]
+    CS --> S3["S3Storage"]
+    CS -.->|"Cache[T]"| Cache["cache"]
+    Signer -.->|"Cache[T]"| Cache
+    DB -.-> Crypto["crypto\nArgon2id"]
+```
+
+- [cmd/main.go](cmd/main.go) – entrypoint; wires config / storage / DB / signer / handlers, HTTP server with timeouts and graceful shutdown.
+- [internal/cache](internal/cache) – generic, type-safe in-memory TTL cache (`Cache[T]`), used by the storage and signing layers.
 - [internal/config](internal/config) – env-based configuration.
 - [internal/handler](internal/handler) – HTTP handlers (auth, projects, manifest, assets, publish).
-- [internal/middleware](internal/middleware) – JWT middleware.
-- [internal/service](internal/service) – update service (manifest assembly, publish, rollback, hashing).
-- [internal/storage](internal/storage) – `local` and `s3` storage backends.
-- [internal/signing](internal/signing) – RSA code-signing of manifests and directives.
-- [internal/database](internal/database) – Bun + SQLite repositories for users, projects, memberships and keys.
+- [internal/middleware](internal/middleware) – JWT authentication and per-group rate limiting.
+- [internal/service](internal/service) – `manifest.go` (manifest resolution, asset reader) and `update.go` (publish, hashing).
+- [internal/storage](internal/storage) – `local` and `s3` storage backends, plus `cached.go` (TTL-cached decorator).
+- [internal/signing](internal/signing) – RSA code-signing of manifests and directives, with signature result caching.
+- [internal/database](internal/database) – Bun + SQLite (WAL mode) repositories for users, projects, memberships and keys.
 - [internal/model](internal/model) – persistent and protocol data models.
 - [internal/crypto](internal/crypto) – Argon2id password hashing.
 

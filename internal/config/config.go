@@ -12,9 +12,7 @@ type Config struct {
 	Hostname string `envconfig:"HOSTNAME" default:"http://localhost:8080"`
 
 	StorageType string `envconfig:"STORAGE_TYPE" default:"local"`
-
-	StorageDir   string `envconfig:"STORAGE_DIR" default:"./data/updates"`
-	DatabasePath string `envconfig:"DATABASE_PATH" default:"./data/ota.db"`
+	DataDir     string `envconfig:"DATA_DIR" default:"./data"`
 
 	S3Endpoint  string `envconfig:"S3_ENDPOINT"`
 	S3Bucket    string `envconfig:"S3_BUCKET"`

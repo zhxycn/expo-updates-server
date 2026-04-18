@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/labstack/echo/v5"
+	"golang.org/x/time/rate"
 
 	"expo-updates-server/internal/config"
 	"expo-updates-server/internal/database"
@@ -29,11 +30,11 @@ func NewHandler(cfg *config.Config, svc *service.UpdateService, db *database.Dat
 }
 
 func (h *Handler) Register(e *echo.Echo) {
-	auth := e.Group("/api/auth")
+	auth := e.Group("/api/auth", middleware.RateLimit(rate.NewLimiter(10, 20)))
 	auth.POST("/register", h.UserRegister)
 	auth.POST("/login", h.UserLogin)
 
-	projects := e.Group("/api/projects", h.jwt.Auth())
+	projects := e.Group("/api/projects", h.jwt.Auth(), middleware.RateLimit(rate.NewLimiter(100, 200)))
 	projects.POST("", h.CreateProject)
 	projects.GET("", h.ListProjects)
 	projects.POST("/:id/users", h.AddProjectUser)
@@ -43,7 +44,7 @@ func (h *Handler) Register(e *echo.Echo) {
 	projects.PATCH("/:id/keys/:keyId", h.UpdateProjectKey)
 	projects.DELETE("/:id/keys/:keyId", h.DeleteProjectKey)
 
-	updates := e.Group("/api/updates/:project")
+	updates := e.Group("/api/updates/:project", middleware.RateLimit(rate.NewLimiter(3000, 5000)))
 	updates.GET("/manifest", h.GetManifest)
 	updates.GET("/assets", h.GetAssets)
 	updates.POST("/publish", h.Publish)

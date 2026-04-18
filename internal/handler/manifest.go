@@ -19,8 +19,8 @@ func (h *Handler) GetManifest(c *echo.Context) error {
 	protocolVersion, _ := strconv.Atoi(c.Request().Header.Get("expo-protocol-version"))
 	platform := c.Request().Header.Get("expo-platform")
 	runtimeVersion := c.Request().Header.Get("expo-runtime-version")
-	currentUpdateID := c.Request().Header.Get("expo-current-update-id")
-	embeddedUpdateID := c.Request().Header.Get("expo-embedded-update-id")
+	currentUpdateId := c.Request().Header.Get("expo-current-update-id")
+	embeddedUpdateId := c.Request().Header.Get("expo-embedded-update-id")
 	expectSignature := c.Request().Header.Get("expo-expect-signature")
 
 	if platform != "ios" && platform != "android" {
@@ -35,48 +35,25 @@ func (h *Handler) GetManifest(c *echo.Context) error {
 		})
 	}
 
-	isRollback, directive, err := h.svc.CheckRollback(c.Request().Context(), project, runtimeVersion)
+	result, err := h.svc.ResolveManifest(c.Request().Context(), model.ResolveParams{
+		Project:          project,
+		RuntimeVersion:   runtimeVersion,
+		Platform:         platform,
+		ProtocolVersion:  protocolVersion,
+		CurrentUpdateID:  currentUpdateId,
+		EmbeddedUpdateID: embeddedUpdateId,
+	})
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{
 			"error": err.Error(),
 		})
 	}
 
-	if isRollback {
-		if protocolVersion == 0 {
-			return c.JSON(http.StatusNotFound, map[string]string{
-				"error": "Rollbacks not supported on protocol version 0",
-			})
-		}
-
-		if currentUpdateID == embeddedUpdateID {
-			directive = &model.Directive{
-				Type: "noUpdateAvailable",
-			}
-		}
-
-		return h.writeDirectiveResponse(c, protocolVersion, directive, expectSignature)
+	if result.Directive != nil {
+		return h.writeDirectiveResponse(c, protocolVersion, result.Directive, expectSignature)
 	}
 
-	if currentUpdateID != "" && protocolVersion == 1 {
-		upToDate, err := h.svc.IsUpToDate(c.Request().Context(), project, runtimeVersion, currentUpdateID)
-		if err == nil && upToDate {
-			noUpdate := &model.Directive{
-				Type: "noUpdateAvailable",
-			}
-
-			return h.writeDirectiveResponse(c, protocolVersion, noUpdate, expectSignature)
-		}
-	}
-
-	manifest, err := h.svc.GetLatestUpdate(c.Request().Context(), project, runtimeVersion, platform)
-	if err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{
-			"error": err.Error(),
-		})
-	}
-
-	return h.writeManifestResponse(c, protocolVersion, manifest, expectSignature)
+	return h.writeManifestResponse(c, protocolVersion, result.Manifest, expectSignature)
 }
 
 func (h *Handler) writeManifestResponse(c *echo.Context, protocolVersion int, manifest *model.Manifest, expectSignature string) error {
@@ -151,7 +128,7 @@ func (h *Handler) writeManifestResponse(c *echo.Context, protocolVersion int, ma
 
 	c.Response().Header().Set("expo-protocol-version", strconv.Itoa(protocolVersion))
 	c.Response().Header().Set("expo-sfv-version", "0")
-	c.Response().Header().Set("cache-control", "private, max-age=0")
+	c.Response().Header().Set("cache-control", "public, s-maxage=5, max-age=0")
 
 	return c.Blob(http.StatusOK, "multipart/mixed; boundary="+writer.Boundary(), body.Bytes())
 }
@@ -202,7 +179,7 @@ func (h *Handler) writeDirectiveResponse(c *echo.Context, protocolVersion int, d
 
 	c.Response().Header().Set("expo-protocol-version", strconv.Itoa(protocolVersion))
 	c.Response().Header().Set("expo-sfv-version", "0")
-	c.Response().Header().Set("cache-control", "private, max-age=0")
+	c.Response().Header().Set("cache-control", "public, s-maxage=5, max-age=0")
 
 	return c.Blob(http.StatusOK, "multipart/mixed; boundary="+writer.Boundary(), body.Bytes())
 }

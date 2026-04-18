@@ -29,3 +29,17 @@ type Directive struct {
 type Extensions struct {
 	AssetRequestHeaders map[string]map[string]string `json:"assetRequestHeaders"`
 }
+
+type ResolveParams struct {
+	Project          string
+	RuntimeVersion   string
+	Platform         string
+	ProtocolVersion  int
+	CurrentUpdateID  string
+	EmbeddedUpdateID string
+}
+
+type ManifestResult struct {
+	Manifest  *Manifest
+	Directive *Directive
+}

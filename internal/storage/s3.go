@@ -64,8 +64,8 @@ func (s *S3Storage) GetLatestUpdateID(ctx context.Context, project, runtimeVersi
 	return dirs[0], nil
 }
 
-func (s *S3Storage) GetMetadata(ctx context.Context, project, runtimeVersion, updateID string) ([]byte, error) {
-	key := fmt.Sprintf("%s/%s/%s/metadata.json", project, runtimeVersion, updateID)
+func (s *S3Storage) GetMetadata(ctx context.Context, project, runtimeVersion, updateId string) ([]byte, error) {
+	key := fmt.Sprintf("%s/%s/%s/metadata.json", project, runtimeVersion, updateId)
 
 	object, err := s.client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
@@ -84,8 +84,8 @@ func (s *S3Storage) GetMetadata(ctx context.Context, project, runtimeVersion, up
 	return data, nil
 }
 
-func (s *S3Storage) GetExpoConfig(ctx context.Context, project, runtimeVersion, updateID string) ([]byte, error) {
-	key := fmt.Sprintf("%s/%s/%s/expoConfig.json", project, runtimeVersion, updateID)
+func (s *S3Storage) GetExpoConfig(ctx context.Context, project, runtimeVersion, updateId string) ([]byte, error) {
+	key := fmt.Sprintf("%s/%s/%s/expoConfig.json", project, runtimeVersion, updateId)
 
 	object, err := s.client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
@@ -104,8 +104,8 @@ func (s *S3Storage) GetExpoConfig(ctx context.Context, project, runtimeVersion, 
 	return data, nil
 }
 
-func (s *S3Storage) GetAsset(ctx context.Context, project, runtimeVersion, updateID, assetPath string) (io.ReadCloser, error) {
-	key := fmt.Sprintf("%s/%s/%s/%s", project, runtimeVersion, updateID, assetPath)
+func (s *S3Storage) GetAsset(ctx context.Context, project, runtimeVersion, updateId, assetPath string) (io.ReadCloser, error) {
+	key := fmt.Sprintf("%s/%s/%s/%s", project, runtimeVersion, updateId, assetPath)
 
 	object, err := s.client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
@@ -118,8 +118,8 @@ func (s *S3Storage) GetAsset(ctx context.Context, project, runtimeVersion, updat
 	return object.Body, nil
 }
 
-func (s *S3Storage) IsRollback(ctx context.Context, project, runtimeVersion, updateID string) (bool, error) {
-	key := fmt.Sprintf("%s/%s/%s/rollback", project, runtimeVersion, updateID)
+func (s *S3Storage) IsRollback(ctx context.Context, project, runtimeVersion, updateId string) (bool, error) {
+	key := fmt.Sprintf("%s/%s/%s/rollback", project, runtimeVersion, updateId)
 
 	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(s.bucket),
@@ -135,9 +135,9 @@ func (s *S3Storage) IsRollback(ctx context.Context, project, runtimeVersion, upd
 	return true, nil
 }
 
-func (s *S3Storage) PutUpdate(ctx context.Context, project, runtimeVersion, updateID string, files map[string][]byte) error {
+func (s *S3Storage) PutUpdate(ctx context.Context, project, runtimeVersion, updateId string, files map[string][]byte) error {
 	for name, data := range files {
-		key := fmt.Sprintf("%s/%s/%s/%s", project, runtimeVersion, updateID, name)
+		key := fmt.Sprintf("%s/%s/%s/%s", project, runtimeVersion, updateId, name)
 
 		_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
 			Bucket: aws.String(s.bucket),

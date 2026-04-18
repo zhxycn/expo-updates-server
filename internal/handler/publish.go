@@ -41,7 +41,7 @@ func (h *Handler) Publish(c *echo.Context) error {
 		})
 	}
 
-	updateID := strconv.FormatInt(time.Now().Unix(), 10)
+	updateId := strconv.FormatInt(time.Now().Unix(), 10)
 
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -68,7 +68,7 @@ func (h *Handler) Publish(c *echo.Context) error {
 		files[fieldName] = data
 	}
 
-	err = h.svc.PublishUpdate(c.Request().Context(), project, runtimeVersion, updateID, files)
+	err = h.svc.PublishUpdate(c.Request().Context(), project, runtimeVersion, updateId, files)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": err.Error(),
@@ -76,7 +76,7 @@ func (h *Handler) Publish(c *echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{
-		"updateID": updateID,
+		"updateId": updateId,
 		"message":  "Update published successfully",
 	})
 }

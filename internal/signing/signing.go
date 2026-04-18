@@ -7,15 +7,20 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
+	"time"
+
+	"expo-updates-server/internal/cache"
 )
 
 type Signer struct {
 	privateKey *rsa.PrivateKey
+	signatures *cache.Cache[string]
 }
 
 func NewSigner(privateKeySource string) (*Signer, error) {
@@ -67,17 +72,27 @@ func NewSigner(privateKeySource string) (*Signer, error) {
 
 	return &Signer{
 		privateKey: privateKey,
+		signatures: cache.New[string](30 * time.Second),
 	}, nil
 }
 
 func (s *Signer) Sign(data []byte) (string, error) {
 	hash := sha256.Sum256(data)
+	cacheKey := hex.EncodeToString(hash[:])
+
+	if sig, ok := s.signatures.Get(cacheKey); ok {
+		return sig, nil
+	}
+
 	signature, err := rsa.SignPKCS1v15(rand.Reader, s.privateKey, crypto.SHA256, hash[:])
 	if err != nil {
 		return "", err
 	}
 
-	return base64.StdEncoding.EncodeToString(signature), nil
+	encoded := base64.StdEncoding.EncodeToString(signature)
+	s.signatures.Set(cacheKey, encoded)
+
+	return encoded, nil
 }
 
 func FormatSignatureHeader(signature string) string {

@@ -2,11 +2,18 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+	"time"
 
 	"github.com/labstack/echo/v5"
 	echomw "github.com/labstack/echo/v5/middleware"
+	_ "go.uber.org/automaxprocs"
 	_ "modernc.org/sqlite"
 
 	"expo-updates-server/internal/config"
@@ -34,8 +41,9 @@ func main() {
 			log.Fatal(err)
 		}
 	default:
-		store = storage.NewLocalStorage(cfg.StorageDir)
+		store = storage.NewLocalStorage(filepath.Join(cfg.DataDir, "updates"))
 	}
+	store = storage.NewCachedStorage(store)
 
 	signer, err := signing.NewSigner(cfg.PrivateKey)
 	if err != nil {
@@ -44,7 +52,7 @@ func main() {
 
 	hash := crypto.NewPassword(crypto.DefaultArgon2())
 
-	db, err := database.NewDatabase(cfg.DatabasePath, hash)
+	db, err := database.NewDatabase(filepath.Join(cfg.DataDir, "ota.db"), hash)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -72,5 +80,29 @@ func main() {
 
 	h.Register(e)
 
-	log.Fatal(e.Start(fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)))
+	server := &http.Server{
+		Addr:         fmt.Sprintf("%s:%s", cfg.Host, cfg.Port),
+		Handler:      e,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	go func() {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(err)
+		}
+	}()
+
+	log.Printf("Server is running at %s", server.Addr)
+
+	<-ctx.Done()
+
+	shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutdown); err != nil {
+		log.Fatal(err)
+	}
 }
