@@ -96,5 +96,5 @@ func (s *Signer) Sign(data []byte) (string, error) {
 }
 
 func FormatSignatureHeader(signature string) string {
-	return fmt.Sprintf("sig=:%s:, keyid=\"main\"", signature)
+	return fmt.Sprintf("sig=\"%s\", keyid=\"main\"", signature)
 }
