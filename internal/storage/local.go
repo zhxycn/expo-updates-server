@@ -22,7 +22,10 @@ func NewLocalStorage(basePath string) *LocalStorage {
 }
 
 func (s *LocalStorage) GetLatestUpdateID(_ context.Context, project, runtimeVersion string) (string, error) {
-	dir := filepath.Join(s.basePath, project, runtimeVersion)
+	dir, err := safeJoin(s.basePath, project, runtimeVersion)
+	if err != nil {
+		return "", err
+	}
 
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -50,46 +53,64 @@ func (s *LocalStorage) GetLatestUpdateID(_ context.Context, project, runtimeVers
 }
 
 func (s *LocalStorage) GetMetadata(_ context.Context, project, runtimeVersion, updateId string) ([]byte, error) {
-	file := filepath.Join(s.updatePath(project, runtimeVersion, updateId), "metadata.json")
-
-	data, err := os.ReadFile(file)
+	dir, err := s.updatePath(project, runtimeVersion, updateId)
 	if err != nil {
 		return nil, err
 	}
 
-	return data, nil
+	file, err := safeJoin(dir, "metadata.json")
+	if err != nil {
+		return nil, err
+	}
+
+	return os.ReadFile(file)
 }
 
 func (s *LocalStorage) GetExpoConfig(_ context.Context, project, runtimeVersion, updateId string) ([]byte, error) {
-	file := filepath.Join(s.updatePath(project, runtimeVersion, updateId), "expoConfig.json")
-
-	data, err := os.ReadFile(file)
+	dir, err := s.updatePath(project, runtimeVersion, updateId)
 	if err != nil {
 		return nil, err
 	}
 
-	return data, nil
+	file, err := safeJoin(dir, "expoConfig.json")
+	if err != nil {
+		return nil, err
+	}
+
+	return os.ReadFile(file)
 }
 
 func (s *LocalStorage) GetAsset(_ context.Context, project, runtimeVersion, updateId, assetPath string) (io.ReadCloser, error) {
-	path := filepath.Join(s.updatePath(project, runtimeVersion, updateId), assetPath)
-
-	file, err := os.Open(path)
+	dir, err := s.updatePath(project, runtimeVersion, updateId)
 	if err != nil {
 		return nil, err
 	}
 
-	return file, nil
+	path, err := safeJoin(dir, assetPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return os.Open(path)
 }
 
 func (s *LocalStorage) IsRollback(_ context.Context, project, runtimeVersion, updateId string) (bool, error) {
-	path := filepath.Join(s.updatePath(project, runtimeVersion, updateId), "rollback")
+	dir, err := s.updatePath(project, runtimeVersion, updateId)
+	if err != nil {
+		return false, err
+	}
 
-	_, err := os.Stat(path)
+	path, err := safeJoin(dir, "rollback")
+	if err != nil {
+		return false, err
+	}
+
+	_, err = os.Stat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return false, nil
 		}
+
 		return false, err
 	}
 
@@ -97,16 +118,21 @@ func (s *LocalStorage) IsRollback(_ context.Context, project, runtimeVersion, up
 }
 
 func (s *LocalStorage) PutUpdate(_ context.Context, project, runtimeVersion, updateId string, files map[string][]byte) error {
-	for name, data := range files {
-		path := filepath.Join(s.updatePath(project, runtimeVersion, updateId), name)
+	dir, err := s.updatePath(project, runtimeVersion, updateId)
+	if err != nil {
+		return err
+	}
 
-		err := os.MkdirAll(filepath.Dir(path), 0755)
+	for name, data := range files {
+		path, err := safeJoin(dir, name)
+
 		if err != nil {
 			return err
 		}
-
-		err = os.WriteFile(path, data, 0644)
-		if err != nil {
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			return err
+		}
+		if err := os.WriteFile(path, data, 0644); err != nil {
 			return err
 		}
 	}
@@ -114,6 +140,6 @@ func (s *LocalStorage) PutUpdate(_ context.Context, project, runtimeVersion, upd
 	return nil
 }
 
-func (s *LocalStorage) updatePath(project, runtimeVersion, updateId string) string {
-	return filepath.Join(s.basePath, project, runtimeVersion, updateId)
+func (s *LocalStorage) updatePath(project, runtimeVersion, updateId string) (string, error) {
+	return safeJoin(s.basePath, project, runtimeVersion, updateId)
 }
