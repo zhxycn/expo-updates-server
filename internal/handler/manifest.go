@@ -16,12 +16,12 @@ import (
 
 func (h *Handler) GetManifest(c *echo.Context) error {
 	project := c.Param("project")
-	protocolVersion, _ := strconv.Atoi(c.Request().Header.Get("expo-protocol-version"))
-	platform := c.Request().Header.Get("expo-platform")
-	runtimeVersion := c.Request().Header.Get("expo-runtime-version")
-	currentUpdateId := c.Request().Header.Get("expo-current-update-id")
-	embeddedUpdateId := c.Request().Header.Get("expo-embedded-update-id")
-	expectSignature := c.Request().Header.Get("expo-expect-signature")
+	protocolVersion, _ := strconv.Atoi(c.Request().Header.Get("Expo-Protocol-Version"))
+	platform := c.Request().Header.Get("Expo-Platform")
+	runtimeVersion := c.Request().Header.Get("Expo-Runtime-Version")
+	currentUpdateId := c.Request().Header.Get("Expo-Current-Update-Id")
+	embeddedUpdateId := c.Request().Header.Get("Expo-Embedded-Update-Id")
+	expectSignature := c.Request().Header.Get("Expo-Expect-Signature")
 
 	if platform != "ios" && platform != "android" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
@@ -103,7 +103,7 @@ func (h *Handler) writeManifestResponse(c *echo.Context, protocolVersion int, ma
 	manifestHeader.Set("Content-Disposition", `form-data; name="manifest"`)
 	manifestHeader.Set("Content-Type", "application/json; charset=utf-8")
 	if signatureHeader != "" {
-		manifestHeader.Set("expo-signature", signatureHeader)
+		manifestHeader.Set("Expo-Signature", signatureHeader)
 	}
 	manifestPart, err := writer.CreatePart(manifestHeader)
 	if err != nil {
@@ -126,9 +126,10 @@ func (h *Handler) writeManifestResponse(c *echo.Context, protocolVersion int, ma
 
 	writer.Close()
 
-	c.Response().Header().Set("expo-protocol-version", strconv.Itoa(protocolVersion))
-	c.Response().Header().Set("expo-sfv-version", "0")
-	c.Response().Header().Set("cache-control", "public, s-maxage=5, max-age=0")
+	c.Response().Header().Set("Expo-Protocol-Version", strconv.Itoa(protocolVersion))
+	c.Response().Header().Set("Expo-Sfv-Version", "0")
+	c.Response().Header().Set("Cache-Control", "public, s-maxage=5, max-age=0")
+	c.Response().Header().Set("Vary", "Expo-Protocol-Version, Expo-Platform, Expo-Runtime-Version, Expo-Current-Update-Id, Expo-Embedded-Update-Id, Expo-Expect-Signature")
 
 	return c.Blob(http.StatusOK, "multipart/mixed; boundary="+writer.Boundary(), body.Bytes())
 }
@@ -165,7 +166,7 @@ func (h *Handler) writeDirectiveResponse(c *echo.Context, protocolVersion int, d
 	dirHeader.Set("Content-Disposition", `form-data; name="directive"`)
 	dirHeader.Set("Content-Type", "application/json; charset=utf-8")
 	if signatureHeader != "" {
-		dirHeader.Set("expo-signature", signatureHeader)
+		dirHeader.Set("Expo-Signature", signatureHeader)
 	}
 	dirPart, err := writer.CreatePart(dirHeader)
 	if err != nil {
@@ -177,9 +178,10 @@ func (h *Handler) writeDirectiveResponse(c *echo.Context, protocolVersion int, d
 
 	writer.Close()
 
-	c.Response().Header().Set("expo-protocol-version", strconv.Itoa(protocolVersion))
-	c.Response().Header().Set("expo-sfv-version", "0")
-	c.Response().Header().Set("cache-control", "public, s-maxage=5, max-age=0")
+	c.Response().Header().Set("Expo-Protocol-Version", strconv.Itoa(protocolVersion))
+	c.Response().Header().Set("Expo-Sfv-Version", "0")
+	c.Response().Header().Set("Cache-Control", "public, s-maxage=5, max-age=0")
+	c.Response().Header().Set("Vary", "Expo-Protocol-Version, Expo-Platform, Expo-Runtime-Version, Expo-Current-Update-Id, Expo-Embedded-Update-Id, Expo-Expect-Signature")
 
 	return c.Blob(http.StatusOK, "multipart/mixed; boundary="+writer.Boundary(), body.Bytes())
 }

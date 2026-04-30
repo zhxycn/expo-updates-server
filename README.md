@@ -256,7 +256,7 @@ Response: `200 OK` `multipart/mixed; boundary=…` with parts:
   { "type": "noUpdateAvailable" }
   ```
 
-Response headers: `expo-protocol-version`, `expo-sfv-version: 0`, `cache-control: public, s-maxage=5, max-age=0` (clients will not cache, but a reverse proxy such as Nginx can cache for up to 5 seconds). When code signing is enabled the manifest/directive part also includes a part header `expo-signature: sig=:<base64>:, keyid="main"`.
+Response headers: `Expo-Protocol-Version`, `Expo-Sfv-Version: 0`, `Cache-Control: public, s-maxage=5, max-age=0`, `Vary: Expo-Protocol-Version, Expo-Platform, Expo-Runtime-Version, Expo-Current-Update-Id, Expo-Embedded-Update-Id, Expo-Expect-Signature`. The `Vary` header lets a reverse proxy (e.g. Nginx) safely cache responses per `(protocol, platform, runtime, current-update-id, embedded-update-id, expect-signature)` tuple for up to 5 seconds, so devices running the same build and update reuse the same cache entry without ever cross-contaminating personalized responses. When code signing is enabled the manifest/directive part also includes a part header `Expo-Signature: sig=:<base64>:, keyid="main"`.
 
 Errors:
 
