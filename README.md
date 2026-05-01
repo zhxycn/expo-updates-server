@@ -73,7 +73,7 @@ Three different auth mechanisms are used depending on the route group:
 | ------------------------ | ------------------------------------------------------------------------------------------------- |
 | `/api/auth/*`            | None (public).                                                                                    |
 | `/api/projects/*`        | `Authorization: Bearer <jwt>` issued by login/register, valid for 72 h.                           |
-| `/api/updates/:project/manifest` and `/assets` | None – uses the Expo client protocol headers / query params (and optional `expo-expect-signature` for code signing). |
+| `/api/updates/:project/manifest` and `/assets` | None – uses the Expo client protocol headers / query params (and optional `Expo-Expect-Signature` for code signing). |
 | `/api/updates/:project/publish` | `Authorization: Bearer <api_key_secret>`, scoped to the matching project.                    |
 
 All error responses use the shape `{ "error": "<message>" }` unless otherwise noted.
@@ -220,12 +220,12 @@ Request headers:
 
 | Header                       | Required | Notes                                                          |
 | ---------------------------- | -------- | -------------------------------------------------------------- |
-| `expo-platform`              | yes      | `ios` or `android`.                                            |
-| `expo-runtime-version`       | yes      | Runtime version baked into the native client.                  |
-| `expo-protocol-version`      | no       | `0` (legacy) or `1`. Required (`>=1`) for rollback/no-update directives. |
-| `expo-current-update-id`     | no       | UUID of the update currently installed. With protocol `v1` enables the `noUpdateAvailable` directive when already up to date. |
-| `expo-embedded-update-id`    | no       | UUID of the update embedded in the binary; used by the rollback flow. |
-| `expo-expect-signature`      | no       | Presence enables [code signing](#code-signing); the response will include `expo-signature`. |
+| `Expo-Platform`              | yes      | `ios` or `android`.                                            |
+| `Expo-Runtime-Version`       | yes      | Runtime version baked into the native client.                  |
+| `Expo-Protocol-Version`      | no       | `0` (legacy) or `1`. Required (`>=1`) for rollback/no-update directives. |
+| `Expo-Current-Update-Id`     | no       | UUID of the update currently installed. With protocol `v1` enables the `noUpdateAvailable` directive when already up to date. |
+| `Expo-Embedded-Update-Id`    | no       | UUID of the update embedded in the binary; used by the rollback flow. |
+| `Expo-Expect-Signature`      | no       | Presence enables [code signing](#code-signing); the response will include `Expo-Signature`. |
 
 Response: `200 OK` `multipart/mixed; boundary=…` with parts:
 
@@ -260,8 +260,8 @@ Response headers: `Expo-Protocol-Version`, `Expo-Sfv-Version: 0`, `Cache-Control
 
 Errors:
 
-- `400 Bad Request` – missing/invalid `expo-platform` or `expo-runtime-version`; or `expo-expect-signature` was sent but the server has no `PRIVATE_KEY` configured.
-- `404 Not Found` – no update for this `(project, runtimeVersion)`, the update is missing `expoConfig.json`, or rollback requested with `expo-protocol-version: 0`.
+- `400 Bad Request` – missing/invalid `Expo-Platform` or `Expo-Runtime-Version`; or `Expo-Expect-Signature` was sent but the server has no `PRIVATE_KEY` configured.
+- `404 Not Found` – no update for this `(project, runtimeVersion)`, the update is missing `expoConfig.json`, rollback requested with `Expo-Protocol-Version: 0`, or rollback requested without an `Expo-Embedded-Update-Id` header.
 
 #### `GET /api/updates/:project/assets`
 
@@ -383,7 +383,7 @@ MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQ...
 -----END PRIVATE KEY-----"
 ```
 
-When a client sends `expo-expect-signature`, the server signs the JSON body of the `manifest` (or `directive`) part using `RSASSA-PKCS1-v1_5` + `SHA-256` and adds an `expo-signature: sig=:<base64>:, keyid="main"` part header (the signature value uses the [Expo SFV](https://docs.expo.dev/technical-specs/expo-sfv-0) byte-string syntax). Configure the matching public certificate in the Expo client with `keyid: "main"` and `alg: "rsa-v1_5-sha256"` (see the [Expo code-signing guide](https://docs.expo.dev/eas-update/code-signing/)). If `expo-expect-signature` is sent but the server has no key configured, the request fails with `400`.
+When a client sends `Expo-Expect-Signature`, the server signs the JSON body of the `manifest` (or `directive`) part using `RSASSA-PKCS1-v1_5` + `SHA-256` and adds an `Expo-Signature: sig=:<base64>:, keyid="main"` part header (the signature value uses the [Expo SFV](https://docs.expo.dev/technical-specs/expo-sfv-0) byte-string syntax). Configure the matching public certificate in the Expo client with `keyid: "main"` and `alg: "rsa-v1_5-sha256"` (see the [Expo code-signing guide](https://docs.expo.dev/eas-update/code-signing/)). If `Expo-Expect-Signature` is sent but the server has no key configured, the request fails with `400`.
 
 ## Storage layout
 
