@@ -29,6 +29,10 @@ func (s *UpdateService) ResolveManifest(ctx context.Context, p model.ResolvePara
 			return nil, fmt.Errorf("rollbacks not supported on protocol version 0")
 		}
 
+		if p.EmbeddedUpdateID == "" {
+			return nil, fmt.Errorf("invalid Expo-Embedded-Update-ID request header specified")
+		}
+
 		if p.CurrentUpdateID == p.EmbeddedUpdateID {
 			return &model.ManifestResult{
 				Directive: &model.Directive{Type: "noUpdateAvailable"},
