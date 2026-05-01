@@ -3,9 +3,7 @@ package handler
 import (
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/labstack/echo/v5"
 )
@@ -34,14 +32,11 @@ func (h *Handler) Publish(c *echo.Context) error {
 	}
 
 	runtimeVersion := c.FormValue("runtimeVersion")
-
 	if runtimeVersion == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "No runtimeVersion provided.",
 		})
 	}
-
-	updateId := strconv.FormatInt(time.Now().Unix(), 10)
 
 	form, err := c.MultipartForm()
 	if err != nil {
@@ -68,7 +63,7 @@ func (h *Handler) Publish(c *echo.Context) error {
 		files[fieldName] = data
 	}
 
-	err = h.svc.PublishUpdate(c.Request().Context(), project, runtimeVersion, updateId, files)
+	updateId, err := h.svc.PublishUpdate(c.Request().Context(), project, runtimeVersion, files)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": err.Error(),

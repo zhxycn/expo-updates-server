@@ -96,10 +96,10 @@ func (c *CachedStorage) GetAsset(ctx context.Context, project, runtimeVersion, u
 	return c.inner.GetAsset(ctx, project, runtimeVersion, updateId, assetPath)
 }
 
-func (c *CachedStorage) PutUpdate(ctx context.Context, project, runtimeVersion, updateId string, files map[string][]byte) error {
-	err := c.inner.PutUpdate(ctx, project, runtimeVersion, updateId, files)
+func (c *CachedStorage) PutUpdate(ctx context.Context, project, runtimeVersion string, files map[string][]byte) (string, error) {
+	updateId, err := c.inner.PutUpdate(ctx, project, runtimeVersion, files)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	prefix := fmt.Sprintf("%s/%s", project, runtimeVersion)
@@ -108,5 +108,5 @@ func (c *CachedStorage) PutUpdate(ctx context.Context, project, runtimeVersion, 
 	c.expoConf.DeleteByPrefix(prefix)
 	c.rollback.DeleteByPrefix(prefix)
 
-	return nil
+	return updateId, nil
 }

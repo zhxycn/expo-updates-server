@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"time"
 )
 
 type LocalStorage struct {
@@ -117,27 +118,52 @@ func (s *LocalStorage) IsRollback(_ context.Context, project, runtimeVersion, up
 	return true, nil
 }
 
-func (s *LocalStorage) PutUpdate(_ context.Context, project, runtimeVersion, updateId string, files map[string][]byte) error {
-	dir, err := s.updatePath(project, runtimeVersion, updateId)
+func (s *LocalStorage) PutUpdate(_ context.Context, project, runtimeVersion string, files map[string][]byte) (string, error) {
+	parent, err := safeJoin(s.basePath, project, runtimeVersion)
 	if err != nil {
-		return err
+		return "", err
+	}
+	if err := os.MkdirAll(parent, 0755); err != nil {
+		return "", err
+	}
+
+	var dir, updateId string
+	for {
+		updateId = strconv.FormatInt(time.Now().Unix(), 10)
+
+		dir, err = safeJoin(parent, updateId)
+		if err != nil {
+			return "", err
+		}
+
+		err = os.Mkdir(dir, 0755)
+		if err == nil {
+			break
+		}
+
+		if !errors.Is(err, os.ErrExist) {
+			return "", err
+		}
+
+		time.Sleep(time.Second)
 	}
 
 	for name, data := range files {
 		path, err := safeJoin(dir, name)
-
 		if err != nil {
-			return err
+			return "", err
 		}
+
 		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-			return err
+			return "", err
 		}
+
 		if err := os.WriteFile(path, data, 0644); err != nil {
-			return err
+			return "", err
 		}
 	}
 
-	return nil
+	return updateId, nil
 }
 
 func (s *LocalStorage) updatePath(project, runtimeVersion, updateId string) (string, error) {

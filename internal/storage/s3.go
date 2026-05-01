@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -135,19 +136,37 @@ func (s *S3Storage) IsRollback(ctx context.Context, project, runtimeVersion, upd
 	return true, nil
 }
 
-func (s *S3Storage) PutUpdate(ctx context.Context, project, runtimeVersion, updateId string, files map[string][]byte) error {
+func (s *S3Storage) PutUpdate(ctx context.Context, project, runtimeVersion string, files map[string][]byte) (string, error) {
+	var updateId string
+	for {
+		updateId = strconv.FormatInt(time.Now().Unix(), 10)
+		key := fmt.Sprintf("%s/%s/%s/metadata.json", project, runtimeVersion, updateId)
+
+		_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+			Bucket: aws.String(s.bucket),
+			Key:    aws.String(key),
+		})
+		if err != nil {
+			if _, ok := errors.AsType[*types.NotFound](err); ok {
+				break
+			}
+			return "", err
+		}
+
+		time.Sleep(time.Second)
+	}
+
 	for name, data := range files {
 		key := fmt.Sprintf("%s/%s/%s/%s", project, runtimeVersion, updateId, name)
-
 		_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
 			Bucket: aws.String(s.bucket),
 			Key:    aws.String(key),
 			Body:   bytes.NewReader(data),
 		})
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
 
-	return nil
+	return updateId, nil
 }

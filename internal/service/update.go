@@ -30,15 +30,15 @@ func NewUpdateService(cfg *config.Config, store storage.Storage) *UpdateService 
 	}
 }
 
-func (s *UpdateService) PublishUpdate(ctx context.Context, project, runtimeVersion, updateId string, files map[string][]byte) error {
+func (s *UpdateService) PublishUpdate(ctx context.Context, project, runtimeVersion string, files map[string][]byte) (string, error) {
 	metadataRaw, ok := files["metadata.json"]
 	if !ok {
-		return errors.New("no metadata.json")
+		return "", errors.New("no metadata.json")
 	}
 
 	var metadata model.ExportMetadata
 	if err := json.Unmarshal(metadataRaw, &metadata); err != nil {
-		return err
+		return "", err
 	}
 
 	for platform, meta := range metadata.FileMetadata {
@@ -47,7 +47,7 @@ func (s *UpdateService) PublishUpdate(ctx context.Context, project, runtimeVersi
 		bundlePath := strings.ReplaceAll(meta.Bundle, "\\", "/")
 		bundleData, ok := files[bundlePath]
 		if !ok {
-			return fmt.Errorf("bundle %s not found", bundlePath)
+			return "", fmt.Errorf("bundle %s not found", bundlePath)
 		}
 
 		index.Bundle = model.AssetIndex{
@@ -63,7 +63,7 @@ func (s *UpdateService) PublishUpdate(ctx context.Context, project, runtimeVersi
 			assetPath := strings.ReplaceAll(am.Path, "\\", "/")
 			assetData, ok := files[assetPath]
 			if !ok {
-				return fmt.Errorf("asset %s not found", assetPath)
+				return "", fmt.Errorf("asset %s not found", assetPath)
 			}
 
 			index.Assets = append(index.Assets, model.AssetIndex{
@@ -77,13 +77,13 @@ func (s *UpdateService) PublishUpdate(ctx context.Context, project, runtimeVersi
 
 		indexJSON, err := json.Marshal(index)
 		if err != nil {
-			return err
+			return "", err
 		}
 
 		files[fmt.Sprintf("index.%s.json", platform)] = indexJSON
 	}
 
-	return s.storage.PutUpdate(ctx, project, runtimeVersion, updateId, files)
+	return s.storage.PutUpdate(ctx, project, runtimeVersion, files)
 }
 
 func (s *UpdateService) readAsset(ctx context.Context, project, runtimeVersion, updateId, path string) ([]byte, error) {
