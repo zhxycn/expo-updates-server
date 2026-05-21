@@ -103,7 +103,9 @@ func (h *Handler) writeManifestResponse(c *echo.Context, protocolVersion int, ma
 	manifestHeader.Set("Content-Disposition", `form-data; name="manifest"`)
 	manifestHeader.Set("Content-Type", "application/json; charset=utf-8")
 	if signatureHeader != "" {
-		manifestHeader.Set("Expo-Signature", signatureHeader)
+		// Direct map assignment to bypass textproto canonicalization;
+		// expo-updates iOS does a case-sensitive lookup for "expo-signature".
+		manifestHeader["expo-signature"] = []string{signatureHeader}
 	}
 	manifestPart, err := writer.CreatePart(manifestHeader)
 	if err != nil {
@@ -166,7 +168,8 @@ func (h *Handler) writeDirectiveResponse(c *echo.Context, protocolVersion int, d
 	dirHeader.Set("Content-Disposition", `form-data; name="directive"`)
 	dirHeader.Set("Content-Type", "application/json; charset=utf-8")
 	if signatureHeader != "" {
-		dirHeader.Set("Expo-Signature", signatureHeader)
+		// See note in writeManifestResponse: lowercase, no canonicalization.
+		dirHeader["expo-signature"] = []string{signatureHeader}
 	}
 	dirPart, err := writer.CreatePart(dirHeader)
 	if err != nil {
