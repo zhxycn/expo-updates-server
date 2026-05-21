@@ -2,9 +2,17 @@ package model
 
 import "time"
 
+// ISO8601Time always serializes with 3-digit milliseconds, which the iOS
+// expo-updates client requires (NSDateFormatter "yyyy-MM-dd'T'HH:mm:ss.SSSZZZZZ").
+type ISO8601Time time.Time
+
+func (t ISO8601Time) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + time.Time(t).UTC().Format("2006-01-02T15:04:05.000Z") + `"`), nil
+}
+
 type Manifest struct {
 	ID             string            `json:"id"`
-	CreatedAt      time.Time         `json:"createdAt"`
+	CreatedAt      ISO8601Time       `json:"createdAt"`
 	RuntimeVersion string            `json:"runtimeVersion"`
 	LaunchAsset    Asset             `json:"launchAsset"`
 	Assets         []Asset           `json:"assets"`

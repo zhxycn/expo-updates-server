@@ -234,7 +234,7 @@ Response: `200 OK` `multipart/mixed; boundary=…` with parts:
   ```jsonc
   {
     "id": "<uuid>",
-    "createdAt": "2026-01-01T10:00:00Z",
+    "createdAt": "2026-01-01T10:00:00.000Z",
     "runtimeVersion": "1.0.0",
     "launchAsset": { "key": "...", "contentType": "application/javascript", "url": "https://.../assets?asset=...&platform=...&runtimeVersion=..." },
     "assets": [{ "hash": "...", "key": "...", "contentType": "image/png", "fileExtension": ".png", "url": "..." }],
@@ -247,7 +247,7 @@ Response: `200 OK` `multipart/mixed; boundary=…` with parts:
 - `directive` – returned **instead of** `manifest` when the latest update is a rollback or when the client is already up to date. Body example:
 
   ```json
-  { "type": "rollBackToEmbedded", "parameters": { "commitTime": "2026-04-17T10:00:00Z" } }
+  { "type": "rollBackToEmbedded", "parameters": { "commitTime": "2026-04-17T10:00:00.000Z" } }
   ```
 
   or
@@ -256,7 +256,7 @@ Response: `200 OK` `multipart/mixed; boundary=…` with parts:
   { "type": "noUpdateAvailable" }
   ```
 
-Response headers: `Expo-Protocol-Version`, `Expo-Sfv-Version: 0`, `Cache-Control: public, s-maxage=5, max-age=0`, `Vary: Expo-Protocol-Version, Expo-Platform, Expo-Runtime-Version, Expo-Current-Update-Id, Expo-Embedded-Update-Id, Expo-Expect-Signature`. The `Vary` header lets a reverse proxy (e.g. Nginx) safely cache responses per `(protocol, platform, runtime, current-update-id, embedded-update-id, expect-signature)` tuple for up to 5 seconds, so devices running the same build and update reuse the same cache entry without ever cross-contaminating personalized responses. When code signing is enabled the manifest/directive part also includes a part header `Expo-Signature: sig=:<base64>:, keyid="main"`.
+Response headers: `Expo-Protocol-Version`, `Expo-Sfv-Version: 0`, `Cache-Control: public, s-maxage=5, max-age=0`, `Vary: Expo-Protocol-Version, Expo-Platform, Expo-Runtime-Version, Expo-Current-Update-Id, Expo-Embedded-Update-Id, Expo-Expect-Signature`. The `Vary` header lets a reverse proxy (e.g. Nginx) safely cache responses per `(protocol, platform, runtime, current-update-id, embedded-update-id, expect-signature)` tuple for up to 5 seconds, so devices running the same build and update reuse the same cache entry without ever cross-contaminating personalized responses. When code signing is enabled the manifest/directive part also includes a part header `Expo-Signature: sig="<base64>", keyid="main"`.
 
 Errors:
 
@@ -383,7 +383,7 @@ MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQ...
 -----END PRIVATE KEY-----"
 ```
 
-When a client sends `Expo-Expect-Signature`, the server signs the JSON body of the `manifest` (or `directive`) part using `RSASSA-PKCS1-v1_5` + `SHA-256` and adds an `Expo-Signature: sig=:<base64>:, keyid="main"` part header (the signature value uses the [Expo SFV](https://docs.expo.dev/technical-specs/expo-sfv-0) byte-string syntax). Configure the matching public certificate in the Expo client with `keyid: "main"` and `alg: "rsa-v1_5-sha256"` (see the [Expo code-signing guide](https://docs.expo.dev/eas-update/code-signing/)). If `Expo-Expect-Signature` is sent but the server has no key configured, the request fails with `400`.
+When a client sends `Expo-Expect-Signature`, the server signs the JSON body of the `manifest` (or `directive`) part using `RSASSA-PKCS1-v1_5` + `SHA-256` and adds an `Expo-Signature: sig="<base64>", keyid="main"` part header (the signature value is serialized as an [SFV](https://docs.expo.dev/technical-specs/expo-sfv-0) string). Configure the matching public certificate in the Expo client with `keyid: "main"` and `alg: "rsa-v1_5-sha256"` (see the [Expo code-signing guide](https://docs.expo.dev/eas-update/code-signing/)). If `Expo-Expect-Signature` is sent but the server has no key configured, the request fails with `400`.
 
 ## Storage layout
 

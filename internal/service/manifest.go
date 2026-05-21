@@ -44,7 +44,7 @@ func (s *UpdateService) ResolveManifest(ctx context.Context, p model.ResolvePara
 			Directive: &model.Directive{
 				Type: "rollBackToEmbedded",
 				Parameters: map[string]any{
-					"commitTime": time.Unix(createdAt, 0).UTC().Format(time.RFC3339),
+					"commitTime": time.Unix(createdAt, 0).UTC().Format("2006-01-02T15:04:05.000Z"),
 				},
 			},
 		}, nil
@@ -107,7 +107,7 @@ func (s *UpdateService) ResolveManifest(ctx context.Context, p model.ResolvePara
 	return &model.ManifestResult{
 		Manifest: &model.Manifest{
 			ID:             manifestId,
-			CreatedAt:      time.Unix(createdAt, 0),
+			CreatedAt:      model.ISO8601Time(time.Unix(createdAt, 0)),
 			RuntimeVersion: p.RuntimeVersion,
 			LaunchAsset:    launchAsset,
 			Assets:         assets,
