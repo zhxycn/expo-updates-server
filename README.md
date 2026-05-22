@@ -2,6 +2,8 @@
 
 A self-hosted, multi-tenant [Expo OTA Updates](https://docs.expo.dev/technical-specs/expo-updates-1/) server written in Go. Implements the Expo Updates protocol v0/v1 (manifest, multipart response, `rollBackToEmbedded` / `noUpdateAvailable` directives, code signing) and adds JWT-based user/project management plus API-key authenticated publishing.
 
+![Alt](https://repobeats.axiom.co/api/embed/789ab7fb23cbb943c5d039f3a1578be25c75e7ad.svg "Repobeats analytics image")
+
 ## Quick start
 
 ### Run locally
