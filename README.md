@@ -8,7 +8,7 @@ A self-hosted, multi-tenant [Expo OTA Updates](https://docs.expo.dev/technical-s
 
 ### Run locally
 
-Build the binary once (requires Go 1.26+), then run it standalone:
+Build the binary once (requires Go 1.27+), then run it standalone:
 
 ```bash
 go build -o server ./cmd/main.go
